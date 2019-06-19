@@ -6,91 +6,62 @@
 
 ![nvidia-gpu-docker](https://cloud.githubusercontent.com/assets/3028125/12213714/5b208976-b632-11e5-8406-38d379ec46aa.png)
 
-# Documentation
-
-The full documentation and frequently asked questions are available on the [repository wiki](https://github.com/NVIDIA/nvidia-docker/wiki).  
-
-An introduction to the NVIDIA Container Runtime is also covered in our [blog post](https://devblogs.nvidia.com/gpu-containers-runtime/).
-
 ## Quickstart
 
-**Make sure you have installed the [NVIDIA driver](https://github.com/NVIDIA/nvidia-docker/wiki/Frequently-Asked-Questions#how-do-i-install-the-nvidia-driver) and a [supported version](https://github.com/NVIDIA/nvidia-docker/wiki/Frequently-Asked-Questions#which-docker-packages-are-supported) of [Docker](https://docs.docker.com/engine/installation/) for your distribution (see [prerequisites](https://github.com/NVIDIA/nvidia-docker/wiki/Installation-(version-2.0)#prerequisites)).**
-
-**If you have a custom `/etc/docker/daemon.json`, the `nvidia-docker2` package might override it.**  
-
-#### Ubuntu 14.04/16.04/18.04, Debian Jessie/Stretch
-
-Ubuntu will install `docker.io` by default which isn't the latest version of Docker Engine. This implies that you will need to pin the version of nvidia-docker. [See more information here](https://github.com/NVIDIA/nvidia-docker/wiki/Frequently-Asked-Questions#how-do-i-install-20-if-im-not-using-the-latest-docker-version).
+**Make sure you have installed the [NVIDIA driver](https://github.com/NVIDIA/nvidia-docker/wiki/Frequently-Asked-Questions#how-do-i-install-the-nvidia-driver) and docker 19.03**
 
 ```sh
-# If you have nvidia-docker 1.0 installed: we need to remove it and all existing GPU containers
-docker volume ls -q -f driver=nvidia-docker | xargs -r -I{} -n1 docker ps -q -a -f volume={} | xargs -r docker rm -f
-sudo apt-get purge -y nvidia-docker
-
+### Ubuntu 14.04/16.04/18.04, Debian Jessie/Stretch
 # Add the package repositories
-curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | \
-  sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
-  sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
 sudo apt-get update
 
-# Install nvidia-docker2 and reload the Docker daemon configuration
-sudo apt-get install -y nvidia-docker2
-sudo pkill -SIGHUP dockerd
-
-# Test nvidia-smi with the latest official CUDA image
-docker run --runtime=nvidia --rm nvidia/cuda:9.0-base nvidia-smi
-```
+sudo apt-get install -y libnvidia-container-plugin
 
 #### CentOS 7 (docker-ce), RHEL 7.4/7.5 (docker-ce), Amazon Linux 1/2
 
-If you are **not** using the official `docker-ce` package on CentOS/RHEL, use the next section.
-
-```sh
-# If you have nvidia-docker 1.0 installed: we need to remove it and all existing GPU containers
-docker volume ls -q -f driver=nvidia-docker | xargs -r -I{} -n1 docker ps -q -a -f volume={} | xargs -r docker rm -f
-sudo yum remove nvidia-docker
-
-# Add the package repositories
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.repo | \
-  sudo tee /etc/yum.repos.d/nvidia-docker.repo
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.repo | sudo tee /etc/yum.repos.d/nvidia-docker.repo
 
-# Install nvidia-docker2 and reload the Docker daemon configuration
-sudo yum install -y nvidia-docker2
-sudo pkill -SIGHUP dockerd
+sudo yum install -y libnvidia-container-plugin
 
-# Test nvidia-smi with the latest official CUDA image
-docker run --runtime=nvidia --rm nvidia/cuda:9.0-base nvidia-smi
-```
-If `yum` reports a conflict on `/etc/docker/daemon.json` with the
-`docker` package, you need to use the next section instead.
+#### Test nvidia-smi with the latest official CUDA image
+$ docker run --gpus all nvidia/cuda:9.0-base nvidia-smi
 
-For docker-ce on `ppc64le`, look at the [FAQ](https://github.com/nvidia/nvidia-docker/wiki/Frequently-Asked-Questions#do-you-support-powerpc64-ppc64le).
+# Start a GPU enabled container on two GPUs
+$ docker run --gpus 2 nvidia/cuda:9.0-base nvidia-smi
 
-#### CentOS 7 (docker), RHEL 7.4/7.5 (docker)
-```sh
-# If you have nvidia-docker 1.0 installed: we need to remove it and all existing GPU containers
-docker volume ls -q -f driver=nvidia-docker | xargs -r -I{} -n1 docker ps -q -a -f volume={} | xargs -r docker rm -f
-sudo yum remove nvidia-docker
+# Starting a GPU enabled container on specific GPUs
+$ docker run --gpus device=1,2 nvidia/cuda:9.0-base nvidia-smi
+$ docker run --gpus device=UUID-ABCDEF,1 nvidia/cuda:9.0-base nvidia-smi
 
-# Add the package repositories
-distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.repo | \
-  sudo tee /etc/yum.repos.d/nvidia-container-runtime.repo
-
-# Install the nvidia runtime hook
-sudo yum install -y nvidia-container-runtime-hook
-
-# Test nvidia-smi with the latest official CUDA image
-# You can't use `--runtime=nvidia` with this setup.
-docker run --rm nvidia/cuda:9.0-base nvidia-smi
+# Specifying a capability (graphics, compute, ...) for my container
+# Note this is rarely if ever used this way
+$ docker run --gpus all,capabilities=utilities nvidia/cuda:9.0-base nvidia-smi
 ```
 
 #### Other distributions and architectures
 
 Look at the [Installation section](https://github.com/nvidia/nvidia-docker/wiki/Installation-(version-2.0)) of the wiki.
+For docker-ce on `ppc64le`, look at the [FAQ](https://github.com/nvidia/nvidia-docker/wiki/Frequently-Asked-Questions#do-you-support-powerpc64-ppc64le).
+
+
+## Existing Users of nvidia-docker2 
+
+If you have the nvidia-docker2 package already installed you can update to docker latest and profit from the latest `--gpu` feature. Alternatively you can still use the old behavior:
+
+```
+$ sudo apt-get update
+$ sudo apt-get --only-upgrade install docker-ce # Alternatively Will automatically update nvidia-docker
+
+# All of the following options will continue working
+$ docker run --gpus all nvidia/cuda nvidia-smi
+$ docker run --runtime nvidia nvidia/cuda nvidia-smi
+$ nvidia-docker run nvidia/cuda nvidia-smi
+```
+
 
 ## Changelog
 
